@@ -1,0 +1,26 @@
+### .NET Core ###
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+
+### Visual Studio / VS Code ###
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+
+### Secrets & Configuration ###
+# Don't track local environment secrets
+appsettings.Development.json
+UserSecrets/
+*.pfx
+
+### OS / IDE Files ###
+.DS_Store
+Thumbs.db
+
+### Docker ###
+.dockerignore

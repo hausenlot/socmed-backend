@@ -1,0 +1,38 @@
+services:
+  socmed-backend:
+    build:
+      context: ./socmed-backend
+      dockerfile: Dockerfile
+    container_name: socmed-backend
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - JWT__KEY=3f8a2b1e9d4c7f6a0e5b3d2c1a8f7e4b9c6d3a0f2e8b5c4d7a1f0e3b6c9d2a5f
+      - Multimedia__InternalApiUrl=http://file_manager_api:3000
+      - Multimedia__PublicBaseUrl=http://192.168.1.44:3000
+      - ConnectionStrings__DefaultConnection=Data Source=data/socmed.db
+    volumes:
+      - socmed_data:/app/data
+    networks:
+      - file_manager_network
+
+  socmed-frontend:
+    build:
+      context: ./social-media-frontend
+      dockerfile: Dockerfile
+    container_name: socmed-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - socmed-backend
+    networks:
+      - file_manager_network
+
+networks:
+  file_manager_network:
+    external: true
+    name: file-manager_file_manager_network # Adjust if the project name prefix differs
+
+volumes:
+  socmed_data:

@@ -1,0 +1,50 @@
+@hostname=localhost
+@port=5029
+@host={{hostname}}:{{port}}
+@contentType=application/json
+
+### Get all Rants (Home timeline)
+GET http://{{host}}/api/Rants
+
+### Get explore timeline 
+GET http://{{host}}/api/Rants/explore
+
+### Create a new Rant
+# @name createRant
+Rant http://{{host}}/api/Rants
+Content-Type: {{contentType}}
+
+{
+  "content": "This is a brand new Rant from the REST Client!"
+}
+
+###
+
+@RantId = {{createRant.response.body.id}}
+
+### Get the specific Rant created above
+GET http://{{host}}/api/Rants/{{RantId}}
+
+### Update the Rant entirely (PUT)
+PUT http://{{host}}/api/Rants/{{RantId}}
+Content-Type: {{contentType}}
+
+{
+  "content": "This Rant has been FULLY updated via PUT."
+}
+
+### Partially update the Rant (PATCH)
+PATCH http://{{host}}/api/Rants/{{RantId}}
+Content-Type: {{contentType}}
+
+{
+  "content": "This Rant has been PARTIALLY updated via PATCH."
+}
+
+### Soft delete the Rant
+DELETE http://{{host}}/api/Rants/{{RantId}}
+
+### Verify it's deleted (Should return 404 or empty from list)
+GET http://{{host}}/api/Rants/{{RantId}}
+
+

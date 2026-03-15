@@ -1,0 +1,36 @@
+@hostname=localhost
+@port=5029
+@host={{hostname}}:{{port}}
+@contentType=application/json
+
+### First, create a Rant to interact with
+# @name createRant
+POST http://{{host}}/api/rants
+Content-Type: {{contentType}}
+
+{
+  "content": "This is a rant we will interact with!"
+}
+
+###
+
+@rantId = {{createRant.response.body.id}}
+
+### Toggle Like (Run once to like, again to unlike)
+POST http://{{host}}/api/rants/{{rantId}}/like
+
+### Get Users who Liked
+GET http://{{host}}/api/rants/{{rantId}}/likes
+
+
+
+### Toggle ReRant (Run once to rerant, again to undo)
+POST http://{{host}}/api/rants/{{rantId}}/rerant
+
+### Get Users who ReRanted
+GET http://{{host}}/api/rants/{{rantId}}/rerants
+
+
+
+### Toggle Bookmark (Run once to bookmark, again to undo)
+POST http://{{host}}/api/rants/{{rantId}}/bookmark

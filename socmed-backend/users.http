@@ -1,0 +1,28 @@
+@hostname=localhost
+@port=5029
+@host={{hostname}}:{{port}}
+@contentType=application/json
+
+### Search for users (e.g. searching 'test')
+GET http://{{host}}/api/users/search?q=test
+
+### Get a specific user profile by username
+GET http://{{host}}/api/users/test-user
+
+### Get a user's rants (paginated)
+GET http://{{host}}/api/users/test-user/rants?page=1&pageSize=5
+
+### Update Profile (Stub)
+PUT http://{{host}}/api/users/profile
+Content-Type: {{contentType}}
+
+{
+  "displayName": "New Display Name",
+  "bio": "This is a new bio from REST client!"
+}
+
+### Upload Profile Image (Stub)
+POST http://{{host}}/api/users/profile/image
+
+### Delete Profile Image (Stub)
+DELETE http://{{host}}/api/users/profile/image

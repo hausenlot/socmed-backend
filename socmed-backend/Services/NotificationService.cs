@@ -1,0 +1,87 @@
+using Microsoft.EntityFrameworkCore;
+using socmed_backend.Data;
+using socmed_backend.DTOs;
+using socmed_backend.Models;
+
+namespace socmed_backend.Services;
+
+public class NotificationService : INotificationService
+{
+    private readonly AppDbContext _context;
+
+    public NotificationService(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<IEnumerable<NotificationResponseDto>> GetNotificationsAsync(string userId, int page = 1, int pageSize = 20)
+    {
+        var notifications = await _context.Notifications
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return notifications.Select(n => new NotificationResponseDto
+        {
+            Id = n.Id,
+            Type = n.Type,
+            Message = n.Message,
+            IsRead = n.IsRead,
+            CreatedAt = n.CreatedAt,
+            SourceUsername = n.SourceUsername,
+            RantId = n.RelatedEntityId
+        }).ToList();
+    }
+
+    public async Task<int> GetUnreadCountAsync(string userId)
+    {
+        return await _context.Notifications
+            .CountAsync(n => n.UserId == userId && !n.IsRead);
+    }
+
+    public async Task<bool> MarkAsReadAsync(int notificationId, string userId)
+    {
+        var notification = await _context.Notifications
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+
+        if (notification == null) return false;
+
+        notification.IsRead = true;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> MarkAllAsReadAsync(string userId)
+    {
+        var unreadNotifications = await _context.Notifications
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .ToListAsync();
+
+        if (unreadNotifications.Count == 0) return true;
+
+        foreach (var notification in unreadNotifications)
+        {
+            notification.IsRead = true;
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task CreateNotificationAsync(string userId, string type, string message, string? sourceUsername = null, int? relatedEntityId = null)
+    {
+        var notification = new Notification
+        {
+            UserId = userId,
+            Type = type,
+            Message = message,
+            SourceUsername = sourceUsername,
+            RelatedEntityId = relatedEntityId
+        };
+
+        _context.Notifications.Add(notification);
+        await _context.SaveChangesAsync();
+    }
+}

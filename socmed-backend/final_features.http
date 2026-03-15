@@ -1,0 +1,80 @@
+@baseUrl = http://localhost:5029/api
+@testUser = test-user-id
+@testUser2 = test-user-2
+
+### 1. Create a Rant to reply to
+# @name createRant
+POST {{baseUrl}}/rants
+Content-Type: application/json
+
+{
+    "content": "This is a rant I want someone to reply to!"
+}
+
+### Store the ID of the new Rant
+@rantId = {{createRant.response.body.id}}
+
+
+### 2. REPLIES API
+### Create a Reply
+# @name createReply
+POST {{baseUrl}}/rants/{{rantId}}/replies
+Content-Type: application/json
+
+{
+    "content": "This is a reply to your rant!"
+}
+
+### Store Reply ID
+@replyId = {{createReply.response.body.id}}
+
+### Get Replies for a Rant
+GET {{baseUrl}}/rants/{{rantId}}/replies?page=1&pageSize=10
+
+### Update the Reply
+PUT {{baseUrl}}/replies/{{replyId}}
+Content-Type: application/json
+
+{
+    "content": "I changed my mind on this reply."
+}
+
+### Delete the Reply
+DELETE {{baseUrl}}/replies/{{replyId}}
+
+
+### 3. FOLLOWS API
+### Follow user 2
+POST {{baseUrl}}/users/test-user-2/follow
+
+### Get following (should show test-user-2)
+GET {{baseUrl}}/users/test-user/following
+
+### Get followers of test-user-2 (should show test-user)
+GET {{baseUrl}}/users/test-user-2/followers
+
+### Unfollow user 2
+POST {{baseUrl}}/users/test-user-2/follow
+
+
+### 4. TIMELINES API
+### Home Timeline
+GET {{baseUrl}}/timelines/home
+
+### User Timeline (test-user)
+GET {{baseUrl}}/timelines/user/test-user
+
+### Mentions Timeline
+GET {{baseUrl}}/timelines/mentions
+
+### Bookmarks Timeline
+GET {{baseUrl}}/timelines/bookmarks
+
+
+### 5. NOTIFICATIONS API
+### Get Notifications
+# Note: You can trigger notifications by Liking a rant or Replying to a rant using the other scripts, or by using the Follow endpoint above while it was active.
+GET {{baseUrl}}/notifications
+
+### Mark all as read
+PUT {{baseUrl}}/notifications/read-all

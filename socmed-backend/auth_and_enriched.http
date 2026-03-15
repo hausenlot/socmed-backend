@@ -1,0 +1,81 @@
+### POST /api/auth/register
+POST http://localhost:5029/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "supersecret123",
+  "displayName": "Alice in Wonderland"
+}
+
+###
+
+### POST /api/auth/login
+POST http://localhost:5029/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "supersecret123"
+}
+
+###
+
+### GET /api/timelines/home  (requires Bearer token)
+GET http://localhost:5029/api/timelines/home?page=1&pageSize=10
+Authorization: Bearer PASTE_TOKEN_HERE
+
+###
+
+### GET /api/users/{username}  (public, but isFollowedByMe needs token)
+GET http://localhost:5029/api/users/alice
+Authorization: Bearer PASTE_TOKEN_HERE
+
+###
+
+### GET /api/notifications/unread-count  (requires token)
+GET http://localhost:5029/api/notifications/unread-count
+Authorization: Bearer PASTE_TOKEN_HERE
+
+###
+
+### POST /api/rants  (requires token)
+POST http://localhost:5029/api/rants
+Content-Type: application/json
+Authorization: Bearer PASTE_TOKEN_HERE
+
+{
+  "content": "My first real rant! 🎉"
+}
+
+###
+
+### POST follow alice  (requires token — follower = token user)
+POST http://localhost:5029/api/users/alice/follow
+Authorization: Bearer PASTE_TOKEN_HERE
+
+###
+
+### GET /api/rants/explore  (public — isLikedByMe flags set if token present)
+GET http://localhost:5029/api/rants/explore
+Authorization: Bearer PASTE_TOKEN_HERE
+
+###
+
+### PUT /api/users/profile  (requires token)
+PUT http://localhost:5029/api/users/profile
+Content-Type: application/json
+Authorization: Bearer PASTE_TOKEN_HERE
+
+{
+  "displayName": "Alice Updated",
+  "bio": "Ranting since 2026"
+}
+
+###
+
+### DELETE /api/rants/1  (requires token, only rant owner can delete)
+DELETE http://localhost:5029/api/rants/1
+Authorization: Bearer PASTE_TOKEN_HERE
+
+###
