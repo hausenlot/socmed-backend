@@ -28,7 +28,7 @@ public class TimelineService : ITimelineService
         // Own rants (reRantedBy = null)
         var ownRants = await _context.Rants
             .Include(r => r.User)
-            .Where(r => followingIds.Contains(r.UserId))
+            .Where(r => followingIds.Contains(r.UserId) && !r.IsDeleted)
             .Select(r => new { Rant = r, ReRantedBy = (string?)null })
             .ToListAsync();
 
@@ -37,12 +37,13 @@ public class TimelineService : ITimelineService
             .Include(rr => rr.Rant)
                 .ThenInclude(r => r.User)
             .Include(rr => rr.User) // The person who re-ranted
-            .Where(rr => followingIds.Contains(rr.UserId))
+            .Where(rr => followingIds.Contains(rr.UserId) && !rr.Rant.IsDeleted)
             .Select(rr => new { Rant = rr.Rant, ReRantedBy = (string?)rr.User.Username })
             .ToListAsync();
 
         var combinedAndSorted = ownRants.Concat(rerantedRants)
             .OrderByDescending(x => x.Rant.CreatedAt)
+            .ThenByDescending(x => x.Rant.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();
@@ -68,19 +69,20 @@ public class TimelineService : ITimelineService
 
         var ownRants = await _context.Rants
             .Include(r => r.User)
-            .Where(r => r.UserId == targetUser.Id)
+            .Where(r => r.UserId == targetUser.Id && !r.IsDeleted)
             .Select(r => new { Rant = r, ReRantedBy = (string?)null })
             .ToListAsync();
 
         var rerantedRants = await _context.RantReRants
             .Include(rr => rr.Rant)
                 .ThenInclude(r => r.User)
-            .Where(rr => rr.UserId == targetUser.Id)
+            .Where(rr => rr.UserId == targetUser.Id && !rr.Rant.IsDeleted)
             .Select(rr => new { Rant = rr.Rant, ReRantedBy = (string?)targetUser.Username })
             .ToListAsync();
 
         var combinedAndSorted = ownRants.Concat(rerantedRants)
             .OrderByDescending(x => x.Rant.CreatedAt)
+            .ThenByDescending(x => x.Rant.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();
@@ -103,8 +105,9 @@ public class TimelineService : ITimelineService
 
         var rants = await _context.Rants
             .Include(r => r.User)
-            .Where(r => r.Content.ToLower().Contains(mentionString))
+            .Where(r => r.Content.ToLower().Contains(mentionString) && !r.IsDeleted)
             .OrderByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -118,8 +121,9 @@ public class TimelineService : ITimelineService
         var bookmarkedRants = await _context.RantBookmarks
             .Include(b => b.Rant)
                 .ThenInclude(r => r.User)
-            .Where(b => b.UserId == userId)
+            .Where(b => b.UserId == userId && !b.Rant.IsDeleted)
             .OrderByDescending(b => b.CreatedAt)
+            .ThenByDescending(b => b.Rant.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

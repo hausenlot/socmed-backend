@@ -10,6 +10,8 @@ public class CreateReplyDto
 
     /// <summary>Optional: ID of the reply this is responding to.</summary>
     public int? ParentReplyId { get; set; }
+
+    public Microsoft.AspNetCore.Http.IFormFile? MediaFile { get; set; }
 }
 
 public class UpdateReplyDto
@@ -44,4 +46,8 @@ public class ReplyResponseDto
 
     // Per-user flag
     public bool IsLikedByMe { get; set; }
+
+    // Multimedia
+    public string? MediaUrl { get; set; }
+    public string? MediaType { get; set; }
 }

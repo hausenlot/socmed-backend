@@ -3,15 +3,20 @@ using socmed_backend.Data;
 using socmed_backend.DTOs;
 using socmed_backend.Models;
 
+using Microsoft.AspNetCore.SignalR;
+using socmed_backend.Hubs;
+
 namespace socmed_backend.Services;
 
 public class NotificationService : INotificationService
 {
     private readonly AppDbContext _context;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public NotificationService(AppDbContext context)
+    public NotificationService(AppDbContext context, IHubContext<NotificationHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     public async Task<IEnumerable<NotificationResponseDto>> GetNotificationsAsync(string userId, int page = 1, int pageSize = 20)
@@ -80,8 +85,60 @@ public class NotificationService : INotificationService
             SourceUsername = sourceUsername,
             RelatedEntityId = relatedEntityId
         };
-
+ 
         _context.Notifications.Add(notification);
         await _context.SaveChangesAsync();
+
+        // Push to SignalR
+        var dto = new NotificationResponseDto
+        {
+            Id = notification.Id,
+            Type = notification.Type,
+            Message = notification.Message,
+            IsRead = notification.IsRead,
+            CreatedAt = notification.CreatedAt,
+            SourceUsername = notification.SourceUsername,
+            RantId = notification.RelatedEntityId
+        };
+
+        await _hubContext.Clients.Group(userId).SendAsync("ReceiveNotification", dto);
+    }
+ 
+    public async Task ProcessMentionsAsync(string content, string sourceUserId, int? relatedEntityId, IEnumerable<string>? excludeUserIds = null)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return;
+ 
+        var mentionRegex = new System.Text.RegularExpressions.Regex(@"@(\w+)");
+        var matches = mentionRegex.Matches(content);
+        if (matches.Count == 0) return;
+ 
+        var mentionedUsernames = matches.Cast<System.Text.RegularExpressions.Match>()
+            .Select(m => m.Groups[1].Value.ToLower())
+            .Distinct()
+            .ToList();
+ 
+        var sourceUser = await _context.Users.FindAsync(sourceUserId);
+        var sourceUsername = sourceUser?.Username ?? "Someone";
+ 
+        foreach (var username in mentionedUsernames)
+        {
+            // Don't notify yourself
+            if (sourceUser != null && username == sourceUser.Username.ToLower()) continue;
+ 
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username);
+            if (user != null)
+            {
+                // Skip if user is in exclusion list (e.g. they already got a Reply notification)
+                if (excludeUserIds != null && excludeUserIds.Contains(user.Id)) continue;
+
+                await CreateNotificationAsync(
+                    user.Id,
+                    "Mention",
+                    $"{sourceUsername} mentioned you in a rant.",
+                    sourceUsername,
+                    relatedEntityId
+                );
+            }
+        }
     }
 }

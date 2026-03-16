@@ -9,11 +9,13 @@ public class ReplyService : IReplyService
 {
     private readonly AppDbContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IMultimediaService _multimediaService;
 
-    public ReplyService(AppDbContext context, INotificationService notificationService)
+    public ReplyService(AppDbContext context, INotificationService notificationService, IMultimediaService multimediaService)
     {
         _context = context;
         _notificationService = notificationService;
+        _multimediaService = multimediaService;
     }
 
     public async Task<IEnumerable<ReplyResponseDto>> GetRepliesAsync(int rantId, string? requestingUserId = null, int page = 1, int pageSize = 10)
@@ -22,6 +24,7 @@ public class ReplyService : IReplyService
             .Include(r => r.User)
             .Where(r => r.RantId == rantId && !r.IsDeleted)
             .OrderBy(r => r.CreatedAt)
+            .ThenBy(r => r.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -29,7 +32,7 @@ public class ReplyService : IReplyService
         return await MapToResponseDtosAsync(replies, requestingUserId);
     }
 
-    public async Task<ReplyResponseDto?> CreateReplyAsync(int rantId, string userId, CreateReplyDto dto)
+    public async Task<ReplyResponseDto?> CreateReplyAsync(int rantId, string userId, CreateReplyDto dto, string? mediaId = null, string? mediaType = null)
     {
         var rant = await _context.Rants.FindAsync(rantId);
         if (rant == null) return null;
@@ -39,14 +42,18 @@ public class ReplyService : IReplyService
             RantId = rantId,
             UserId = userId,
             Content = dto.Content,
-            ParentReplyId = dto.ParentReplyId
+            ParentReplyId = dto.ParentReplyId,
+            MediaId = mediaId,
+            MediaType = mediaType
         };
 
         _context.RantReplies.Add(reply);
         await _context.SaveChangesAsync();
-
+ 
         var currentUser = await _context.Users.FindAsync(userId);
         var currentUsername = currentUser?.Username ?? "Someone";
+
+        var excludeUserIds = new List<string>();
 
         // Notify the rant author (unless replying to own rant)
         if (rant.UserId != userId)
@@ -57,13 +64,14 @@ public class ReplyService : IReplyService
                 $"{currentUsername} replied to your rant.",
                 currentUsername,
                 rantId);
+            excludeUserIds.Add(rant.UserId);
         }
 
         // If replying to another reply, also notify that reply's author
         if (dto.ParentReplyId.HasValue)
         {
             var parentReply = await _context.RantReplies.FindAsync(dto.ParentReplyId.Value);
-            if (parentReply != null && parentReply.UserId != userId && parentReply.UserId != rant.UserId)
+            if (parentReply != null && parentReply.UserId != userId && !excludeUserIds.Contains(parentReply.UserId))
             {
                 await _notificationService.CreateNotificationAsync(
                     parentReply.UserId,
@@ -71,8 +79,12 @@ public class ReplyService : IReplyService
                     $"{currentUsername} replied to your reply.",
                     currentUsername,
                     rantId);
+                excludeUserIds.Add(parentReply.UserId);
             }
         }
+
+        // Process mentions, excluding those already notified via Reply alerts
+        await _notificationService.ProcessMentionsAsync(dto.Content, userId, rantId, excludeUserIds);
 
         // Re-fetch with User included
         var saved = await _context.RantReplies
@@ -108,12 +120,47 @@ public class ReplyService : IReplyService
         return true;
     }
 
+    public async Task<bool> ToggleLikeAsync(int replyId, string userId)
+    {
+        var existing = await _context.ReplyLikes
+            .FirstOrDefaultAsync(l => l.ReplyId == replyId && l.UserId == userId);
+
+        if (existing != null)
+        {
+            _context.ReplyLikes.Remove(existing);
+        }
+        else
+        {
+            _context.ReplyLikes.Add(new ReplyLike { ReplyId = replyId, UserId = userId });
+            
+            // Optional: Notify the reply author about the like
+            var reply = await _context.RantReplies.Include(r => r.User).FirstOrDefaultAsync(r => r.Id == replyId);
+            var liker = await _context.Users.FindAsync(userId);
+            if (reply != null && liker != null && reply.UserId != userId)
+            {
+                await _notificationService.CreateNotificationAsync(
+                    reply.UserId,
+                    "Like",
+                    $"{liker.DisplayName} liked your reply.",
+                    liker.Username,
+                    reply.RantId
+                );
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     // ── Shared helper ──────────────────────────────────────────────────────────
 
     private async Task<IEnumerable<ReplyResponseDto>> MapToResponseDtosAsync(
         IEnumerable<RantReply> replies, string? requestingUserId)
     {
         var replyList = replies.ToList();
+        if (replyList.Count == 0) return Enumerable.Empty<ReplyResponseDto>();
+
+        var replyIds = replyList.Select(r => r.Id).ToList();
 
         // Batch-load parent reply usernames
         var parentIds = replyList
@@ -129,6 +176,21 @@ public class ReplyService : IReplyService
                 .ToDictionaryAsync(r => r.Id, r => r.User.Username)
             : new Dictionary<int, string>();
 
+        // Load like counts
+        var likeCounts = await _context.ReplyLikes
+            .Where(l => replyIds.Contains(l.ReplyId))
+            .GroupBy(l => l.ReplyId)
+            .Select(g => new { ReplyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ReplyId, x => x.Count);
+
+        // Load if liked by me
+        var likedByMe = requestingUserId != null
+            ? await _context.ReplyLikes
+                .Where(l => l.UserId == requestingUserId && replyIds.Contains(l.ReplyId))
+                .Select(l => l.ReplyId)
+                .ToListAsync()
+            : new List<int>();
+
         return replyList.Select(r => new ReplyResponseDto
         {
             Id = r.Id,
@@ -142,9 +204,11 @@ public class ReplyService : IReplyService
             ParentReplyUsername = r.ParentReplyId.HasValue && parentUsernames.ContainsKey(r.ParentReplyId.Value)
                 ? parentUsernames[r.ParentReplyId.Value]
                 : null,
-            LikeCount = 0,
-            ReplyCount = 0,
-            IsLikedByMe = false
+            LikeCount = likeCounts.ContainsKey(r.Id) ? likeCounts[r.Id] : 0,
+            ReplyCount = 0, // Flattening for now
+            IsLikedByMe = likedByMe.Contains(r.Id),
+            MediaUrl = r.MediaId != null ? _multimediaService.GetPublicUrl(r.MediaId) : null,
+            MediaType = r.MediaType
         }).ToList();
     }
 }

@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using socmed_backend.Data;
 using socmed_backend.Models;
 using socmed_backend.Services;
+using socmed_backend.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
 // --- Services ---
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 104857600; // 100 MB
@@ -57,6 +59,21 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
+
+    // Support SignalR JWT in query string
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -87,38 +104,39 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Seed initial test users if none exist
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     
-    // Automatically apply migrations on startup
+    // Hard Reset is done, removing EnsureDeleted() to persist data
     context.Database.Migrate();
 
-    if (!context.Users.Any(u => u.Id == "test-user-id"))
+    /*
+    // Custom seeding: 10 rants for each existing user
+    var users = await context.Users.Include(u => u.Rants).ToListAsync();
+    foreach (var user in users)
     {
-        context.Users.Add(new User
+        if (!user.Rants.Any())
         {
-            Id = "test-user-id",
-            Username = "test-user",
-            DisplayName = "Test User",
-            Bio = "I am a test user seed!"
-        });
+            Console.WriteLine($"Seeding 10 rants for user: {user.Username}");
+            for (int i = 1; i <= 10; i++)
+            {
+                context.Rants.Add(new Rant
+                {
+                    Content = $"Rant #{i} from @{user.Username}! 🚀 Just testing out the new clean slate.",
+                    UserId = user.Id,
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-i * 10), // Spread them out slightly
+                    UpdatedAt = DateTime.UtcNow.AddMinutes(-i * 10)
+                });
+            }
+        }
     }
 
-    if (!context.Users.Any(u => u.Id == "test-user-2"))
-    {
-        context.Users.Add(new User
-        {
-            Id = "test-user-2",
-            Username = "test-user-2",
-            DisplayName = "Second Test User",
-            Bio = "I am another test user seed!"
-        });
-    }
-
-    context.SaveChanges();
+    await context.SaveChangesAsync();
+    */
 }
 
 app.Run();

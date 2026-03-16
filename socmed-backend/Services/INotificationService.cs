@@ -9,4 +9,5 @@ public interface INotificationService
     Task<bool> MarkAsReadAsync(int notificationId, string userId);
     Task<bool> MarkAllAsReadAsync(string userId);
     Task CreateNotificationAsync(string userId, string type, string message, string? sourceUsername = null, int? relatedEntityId = null);
+    Task ProcessMentionsAsync(string content, string sourceUserId, int? relatedEntityId, IEnumerable<string>? excludeUserIds = null);
 }

@@ -28,11 +28,14 @@ services:
       - socmed-backend
     networks:
       - file_manager_network
+      - cloudflare-net
 
 networks:
   file_manager_network:
     external: true
     name: file-manager_file_manager_network # Adjust if the project name prefix differs
+  cloudflare-net:
+    external: true
 
 volumes:
   socmed_data:

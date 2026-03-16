@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<RantReply> RantReplies { get; set; } = null!;
     public DbSet<Follow> Follows { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;
+    public DbSet<ReplyLike> ReplyLikes { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +39,9 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<RantBookmark>()
             .HasKey(b => new { b.RantId, b.UserId });
+
+        modelBuilder.Entity<ReplyLike>()
+            .HasKey(rl => new { rl.ReplyId, rl.UserId });
 
         // Configure Comp. Key and relations for Follow
         modelBuilder.Entity<Follow>()

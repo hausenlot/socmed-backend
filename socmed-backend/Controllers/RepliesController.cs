@@ -35,4 +35,11 @@ public class RepliesController : ControllerBase
         if (!success) return BadRequest(new { message = "Could not delete reply. It might not exist or you don't have permission." });
         return NoContent();
     }
+
+    [HttpPost("{replyId}/like")]
+    public async Task<IActionResult> ToggleLike(int replyId)
+    {
+        await _replyService.ToggleLikeAsync(replyId, CurrentUserId);
+        return Ok();
+    }
 }

@@ -14,6 +14,8 @@ public class RantsController : ControllerBase
     private readonly IRantInteractionService _interactionService;
     private readonly IReplyService _replyService;
 
+    private string? CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier);
+
     public RantsController(IRantService rantService, IRantInteractionService interactionService, IReplyService replyService)
     {
         _rantService = rantService;
@@ -21,12 +23,12 @@ public class RantsController : ControllerBase
         _replyService = replyService;
     }
 
-    private string? CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier);
+
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<RantResponseDto>>> GetRants()
+    public async Task<ActionResult<IEnumerable<RantResponseDto>>> GetRants([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var rants = await _rantService.GetAllRantsAsync(CurrentUserId);
+        var rants = await _rantService.GetAllRantsAsync(CurrentUserId, page, pageSize);
         return Ok(rants);
     }
 
@@ -88,9 +90,9 @@ public class RantsController : ControllerBase
     }
 
     [HttpGet("explore")]
-    public async Task<ActionResult<IEnumerable<RantResponseDto>>> GetExplore()
+    public async Task<ActionResult<IEnumerable<RantResponseDto>>> GetExplore([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var rants = await _rantService.GetExploreRantsAsync(CurrentUserId);
+        var rants = await _rantService.GetExploreRantsAsync(CurrentUserId, page, pageSize);
         return Ok(rants);
     }
 
@@ -148,9 +150,24 @@ public class RantsController : ControllerBase
 
     [HttpPost("{id}/replies")]
     [Authorize]
-    public async Task<ActionResult> CreateReply(int id, [FromBody] CreateReplyDto dto)
+    [DisableRequestSizeLimit]
+    public async Task<ActionResult> CreateReply(int id, [FromForm] CreateReplyDto dto, [FromServices] IMultimediaService multimediaService)
     {
-        var reply = await _replyService.CreateReplyAsync(id, CurrentUserId!, dto);
+        string? mediaId = null;
+        string? mediaType = null;
+
+        if (dto.MediaFile != null)
+        {
+            using var stream = dto.MediaFile.OpenReadStream();
+            var uploadResult = await multimediaService.UploadFileAsync(stream, dto.MediaFile.FileName, dto.MediaFile.ContentType);
+            if (uploadResult != null)
+            {
+                mediaId = uploadResult.FileId;
+                mediaType = uploadResult.MediaType;
+            }
+        }
+
+        var reply = await _replyService.CreateReplyAsync(id, CurrentUserId!, dto, mediaId, mediaType);
         if (reply == null) return NotFound(new { message = "Rant not found." });
         return Ok(reply);
     }

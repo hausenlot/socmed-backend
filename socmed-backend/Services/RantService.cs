@@ -9,18 +9,24 @@ public class RantService : IRantService
 {
     private readonly AppDbContext _context;
     private readonly IMultimediaService _multimediaService;
-
-    public RantService(AppDbContext context, IMultimediaService multimediaService)
+    private readonly INotificationService _notificationService;
+ 
+    public RantService(AppDbContext context, IMultimediaService multimediaService, INotificationService notificationService)
     {
         _context = context;
         _multimediaService = multimediaService;
+        _notificationService = notificationService;
     }
 
-    public async Task<IEnumerable<RantResponseDto>> GetAllRantsAsync(string? requestingUserId = null)
+    public async Task<IEnumerable<RantResponseDto>> GetAllRantsAsync(string? requestingUserId = null, int page = 1, int pageSize = 20)
     {
         var rants = await _context.Rants
             .Include(r => r.User)
+            .Where(r => !r.IsDeleted)
             .OrderByDescending(r => r.CreatedAt)
+            .ThenByDescending(r => r.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         return await MapToResponseDtosAsync(rants, requestingUserId);
@@ -52,7 +58,10 @@ public class RantService : IRantService
 
         _context.Rants.Add(rant);
         await _context.SaveChangesAsync();
-
+ 
+        // Process mentions
+        await _notificationService.ProcessMentionsAsync(content, userId, rant.Id);
+ 
         // Re-fetch with Include so User nav prop is populated
         var savedRant = await _context.Rants
             .Include(r => r.User)
@@ -82,12 +91,13 @@ public class RantService : IRantService
         return true;
     }
 
-    public async Task<IEnumerable<RantResponseDto>> GetExploreRantsAsync(string? requestingUserId = null)
+    public async Task<IEnumerable<RantResponseDto>> GetExploreRantsAsync(string? requestingUserId = null, int page = 1, int pageSize = 20)
     {
         var rants = await _context.Rants
             .Include(r => r.User)
             .OrderByDescending(r => r.CreatedAt)
-            .Take(50)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         return await MapToResponseDtosAsync(rants, requestingUserId);

@@ -14,6 +14,8 @@ public class RantReply
     public int? ParentReplyId { get; set; }
 
     public string Content { get; set; } = string.Empty;
+    public string? MediaId { get; set; }
+    public string? MediaType { get; set; } // "image" or "video"
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
