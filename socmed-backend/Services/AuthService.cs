@@ -13,11 +13,13 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IMultimediaService _multimediaService;
 
-    public AuthService(AppDbContext context, IConfiguration configuration)
+    public AuthService(AppDbContext context, IConfiguration configuration, IMultimediaService multimediaService)
     {
         _context = context;
         _configuration = configuration;
+        _multimediaService = multimediaService;
     }
 
     public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
@@ -47,7 +49,7 @@ public class AuthService : IAuthService
             Token = token,
             Username = user.Username,
             DisplayName = user.DisplayName,
-            ProfileImageUrl = user.ProfileImageUrl
+            ProfileImageUrl = user.ProfileMediaId != null ? _multimediaService.GetPublicUrl(user.ProfileMediaId) : null
         };
     }
 
@@ -69,7 +71,7 @@ public class AuthService : IAuthService
             Token = token,
             Username = user.Username,
             DisplayName = user.DisplayName,
-            ProfileImageUrl = user.ProfileImageUrl
+            ProfileImageUrl = user.ProfileMediaId != null ? _multimediaService.GetPublicUrl(user.ProfileMediaId) : null
         };
     }
 

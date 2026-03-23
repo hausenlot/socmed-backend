@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using socmed_backend.Data;
 
@@ -10,9 +11,11 @@ using socmed_backend.Data;
 namespace socmed_backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260316100215_AddUserBannerImage")]
+    partial class AddUserBannerImage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -94,10 +97,6 @@ namespace socmed_backend.Migrations
                     b.Property<string>("MediaType")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("PublicId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<int?>("QuoteRantId")
                         .HasColumnType("INTEGER");
 
@@ -109,9 +108,6 @@ namespace socmed_backend.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique();
 
                     b.HasIndex("QuoteRantId");
 
@@ -199,10 +195,6 @@ namespace socmed_backend.Migrations
                     b.Property<int?>("ParentReplyId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("PublicId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<int>("RantId")
                         .HasColumnType("INTEGER");
 
@@ -214,9 +206,6 @@ namespace socmed_backend.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique();
 
                     b.HasIndex("RantId");
 
@@ -248,7 +237,7 @@ namespace socmed_backend.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("BannerMediaId")
+                    b.Property<string>("BannerImageUrl")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Bio")
@@ -263,7 +252,7 @@ namespace socmed_backend.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ProfileMediaId")
+                    b.Property<string>("ProfileImageUrl")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Username")

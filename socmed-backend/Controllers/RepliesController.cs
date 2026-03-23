@@ -21,7 +21,7 @@ public class RepliesController : ControllerBase
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     [HttpPut("{replyId}")]
-    public async Task<IActionResult> UpdateReply(int replyId, [FromBody] UpdateReplyDto dto)
+    public async Task<IActionResult> UpdateReply(string replyId, [FromBody] UpdateReplyDto dto)
     {
         var reply = await _replyService.UpdateReplyAsync(replyId, CurrentUserId, dto);
         if (reply == null) return BadRequest(new { message = "Could not update reply. It might not exist or you don't have permission." });
@@ -29,7 +29,7 @@ public class RepliesController : ControllerBase
     }
 
     [HttpDelete("{replyId}")]
-    public async Task<IActionResult> DeleteReply(int replyId)
+    public async Task<IActionResult> DeleteReply(string replyId)
     {
         var success = await _replyService.DeleteReplyAsync(replyId, CurrentUserId);
         if (!success) return BadRequest(new { message = "Could not delete reply. It might not exist or you don't have permission." });
@@ -37,7 +37,7 @@ public class RepliesController : ControllerBase
     }
 
     [HttpPost("{replyId}/like")]
-    public async Task<IActionResult> ToggleLike(int replyId)
+    public async Task<IActionResult> ToggleLike(string replyId)
     {
         await _replyService.ToggleLikeAsync(replyId, CurrentUserId);
         return Ok();

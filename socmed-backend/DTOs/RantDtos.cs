@@ -5,11 +5,11 @@ namespace socmed_backend.DTOs;
 public class CreateRantDto
 {
     [Required]
-    [StringLength(280, MinimumLength = 1)]
+    [StringLength(1000, MinimumLength = 1)]
     public string Content { get; set; } = string.Empty;
 
     /// <summary>Optional: ID of the rant being quoted (quote re-rant).</summary>
-    public int? QuoteRantId { get; set; }
+    public string? QuoteRantId { get; set; }
 
     /// <summary>Optional: multimedia file to attach to the rant.</summary>
     public IFormFile? MediaFile { get; set; }
@@ -18,7 +18,7 @@ public class CreateRantDto
 public class UpdateRantDto
 {
     [Required]
-    [StringLength(280, MinimumLength = 1)]
+    [StringLength(1000, MinimumLength = 1)]
     public string Content { get; set; } = string.Empty;
 }
 
@@ -28,7 +28,7 @@ public class UpdateRantDto
 /// </summary>
 public class RantResponseDto
 {
-    public int Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -53,7 +53,7 @@ public class RantResponseDto
     public string? ReRantedByUsername { get; set; }
 
     // Quote re-rant (embedded original rant)
-    public int? QuoteRantId { get; set; }
+    public string? QuoteRantId { get; set; }
     public QuoteRantDto? QuoteRant { get; set; }
 
     // Multimedia support
@@ -66,11 +66,12 @@ public class RantResponseDto
 /// </summary>
 public class QuoteRantDto
 {
-    public int Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? ProfileImageUrl { get; set; }
     public string? MediaUrl { get; set; }
     public string? MediaType { get; set; }
 }

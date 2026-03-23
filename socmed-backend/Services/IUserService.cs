@@ -13,6 +13,8 @@ public interface IUserService
     Task<IEnumerable<UserProfileDto>> GetSuggestedUsersAsync(string? requestingUserId, int count = 5);
 
     Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto dto);
-    Task<bool> UpdateProfileImageAsync(string userId, IFormFile file, string webRootPath, string baseUrl);
-    Task<bool> RemoveProfileImageAsync(string userId, string webRootPath);
+    Task<bool> UpdateProfileImageAsync(string userId, IFormFile file);
+    Task<bool> RemoveProfileImageAsync(string userId);
+    Task<bool> UpdateBannerImageAsync(string userId, IFormFile file);
+    Task<bool> RemoveBannerImageAsync(string userId);
 }

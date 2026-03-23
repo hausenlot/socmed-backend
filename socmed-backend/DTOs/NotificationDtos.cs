@@ -12,5 +12,5 @@ public class NotificationResponseDto
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? SourceUsername { get; set; }
-    public int? RantId { get; set; }
+    public string? RantId { get; set; }
 }

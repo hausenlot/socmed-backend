@@ -9,11 +9,13 @@ public class UserService : IUserService
 {
     private readonly AppDbContext _context;
     private readonly RantService _rantService;
+    private readonly IMultimediaService _multimediaService;
 
-    public UserService(AppDbContext context, RantService rantService)
+    public UserService(AppDbContext context, RantService rantService, IMultimediaService multimediaService)
     {
         _context = context;
         _rantService = rantService;
+        _multimediaService = multimediaService;
     }
 
     public async Task<UserProfileDto?> GetUserByUsernameAsync(string username, string? requestingUserId = null)
@@ -36,10 +38,12 @@ public class UserService : IUserService
 
         return new UserProfileDto
         {
+            Id = user.Id,
             Username = user.Username,
             DisplayName = user.DisplayName,
             Bio = user.Bio,
-            ProfileImageUrl = user.ProfileImageUrl,
+            ProfileImageUrl = user.ProfileMediaId != null ? _multimediaService.GetPublicUrl(user.ProfileMediaId) : null,
+            BannerImageUrl = user.BannerMediaId != null ? _multimediaService.GetPublicUrl(user.BannerMediaId) : null,
             CreatedAt = user.CreatedAt,
             FollowerCount = followerCount,
             FollowingCount = followingCount,
@@ -110,6 +114,7 @@ public class UserService : IUserService
 
         var replies = await _context.RantReplies
             .Include(r => r.User)
+            .Include(r => r.Rant)
             .Where(r => r.UserId == user.Id && !r.IsDeleted)
             .OrderByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
@@ -118,13 +123,16 @@ public class UserService : IUserService
 
         return replies.Select(r => new ReplyResponseDto
         {
-            Id = r.Id,
+            Id = r.PublicId,
+            RantId = r.Rant?.PublicId ?? string.Empty,
             Content = r.Content,
             CreatedAt = r.CreatedAt,
             UserId = r.UserId,
             Username = r.User.Username,
             DisplayName = r.User.DisplayName,
-            ProfileImageUrl = r.User.ProfileImageUrl,
+            ProfileImageUrl = r.User.ProfileMediaId != null ? _multimediaService.GetPublicUrl(r.User.ProfileMediaId) : null,
+            MediaUrl = r.MediaId != null ? _multimediaService.GetPublicUrl(r.MediaId) : null,
+            MediaType = r.MediaType,
             LikeCount = 0,
             ReplyCount = 0,
             IsLikedByMe = false
@@ -176,10 +184,12 @@ public class UserService : IUserService
 
         return users.Select(u => new UserProfileDto
         {
+            Id = u.Id,
             Username = u.Username,
             DisplayName = u.DisplayName,
             Bio = u.Bio,
-            ProfileImageUrl = u.ProfileImageUrl,
+            ProfileImageUrl = u.ProfileMediaId != null ? _multimediaService.GetPublicUrl(u.ProfileMediaId) : null,
+            BannerImageUrl = u.BannerMediaId != null ? _multimediaService.GetPublicUrl(u.BannerMediaId) : null,
             CreatedAt = u.CreatedAt,
             FollowerCount = _context.Follows.Count(f => f.FollowingId == u.Id),
             FollowingCount = _context.Follows.Count(f => f.FollowerId == u.Id),
@@ -200,52 +210,50 @@ public class UserService : IUserService
         return true;
     }
 
-    public async Task<bool> UpdateProfileImageAsync(string userId, IFormFile file, string webRootPath, string baseUrl)
+    public async Task<bool> UpdateProfileImageAsync(string userId, IFormFile file)
     {
         var user = await _context.Users.FindAsync(userId);
         if (user == null) return false;
 
-        // Delete old file if exists
-        if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-        {
-            var oldRelativePath = user.ProfileImageUrl.Replace(baseUrl, "").TrimStart('/');
-            var oldFilePath = Path.Combine(webRootPath, oldRelativePath);
-            if (File.Exists(oldFilePath)) File.Delete(oldFilePath);
-        }
+        using var stream = file.OpenReadStream();
+        var uploadResult = await _multimediaService.UploadFileAsync(stream, file.FileName, file.ContentType);
+        if (uploadResult == null) return false;
 
-        // Save new file
-        var uploadsDir = Path.Combine(webRootPath, "uploads");
-        Directory.CreateDirectory(uploadsDir);
-
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var fileName = $"{userId}_{Guid.NewGuid()}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        user.ProfileImageUrl = $"{baseUrl}/uploads/{fileName}";
+        user.ProfileMediaId = uploadResult.FileId;
         await _context.SaveChangesAsync();
         return true;
     }
 
-    public async Task<bool> RemoveProfileImageAsync(string userId, string webRootPath)
+    public async Task<bool> RemoveProfileImageAsync(string userId)
     {
         var user = await _context.Users.FindAsync(userId);
         if (user == null) return false;
 
-        if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-        {
-            // Extract filesystem path from URL
-            var uri = new Uri(user.ProfileImageUrl);
-            var relativePath = uri.AbsolutePath.TrimStart('/');
-            var filePath = Path.Combine(webRootPath, relativePath);
-            if (File.Exists(filePath)) File.Delete(filePath);
-        }
+        user.ProfileMediaId = null;
+        await _context.SaveChangesAsync();
+        return true;
+    }
 
-        user.ProfileImageUrl = null;
+    public async Task<bool> UpdateBannerImageAsync(string userId, IFormFile file)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return false;
+
+        using var stream = file.OpenReadStream();
+        var uploadResult = await _multimediaService.UploadFileAsync(stream, file.FileName, file.ContentType);
+        if (uploadResult == null) return false;
+
+        user.BannerMediaId = uploadResult.FileId;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RemoveBannerImageAsync(string userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return false;
+
+        user.BannerMediaId = null;
         await _context.SaveChangesAsync();
         return true;
     }

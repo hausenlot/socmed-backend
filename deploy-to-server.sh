@@ -19,7 +19,7 @@ ssh -i "$SSH_KEY" $SERVER_USER@$SERVER_IP "mkdir -p $DEST_DIR/social-media-front
 
 # 2. Sync Backend files (Added -e for the key)
 echo "📦 Syncing Backend..."
-rsync -avz -e "ssh -i $SSH_KEY" --exclude 'bin' --exclude 'obj' --exclude '.git' --exclude 'socmed.db*' \
+rsync -avz --delete -e "ssh -i $SSH_KEY" --exclude 'bin' --exclude 'obj' --exclude '.git' --exclude 'socmed.db*' \
       "$BACKEND_DIR/" $SERVER_USER@$SERVER_IP:$DEST_DIR/socmed-backend/
 
 # 3. Sync Frontend files

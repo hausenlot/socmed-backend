@@ -95,6 +95,38 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// --- CLI Commands ---
+if (args.Contains("--reset-password"))
+{
+    var resetIndex = Array.IndexOf(args, "--reset-password");
+    if (args.Length < resetIndex + 3)
+    {
+        Console.WriteLine("Usage: dotnet run -- --reset-password <username> <new_password>");
+        return;
+    }
+
+    var username = args[resetIndex + 1].ToLower();
+    var newPassword = args[resetIndex + 2];
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username);
+
+        if (user == null)
+        {
+            Console.WriteLine($"Error: User '{username}' not found.");
+            return;
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await context.SaveChangesAsync();
+
+        Console.WriteLine($"Successfully reset password for user: {username}");
+    }
+    return;
+}
+
 // --- Middleware Pipeline ---
 app.UseCors("FrontendPolicy");
 

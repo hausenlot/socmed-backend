@@ -12,7 +12,8 @@ public class User
 
     public string? DisplayName { get; set; }
     public string? Bio { get; set; }
-    public string? ProfileImageUrl { get; set; }
+    public string? ProfileMediaId { get; set; }
+    public string? BannerMediaId { get; set; }
 
     // Auth fields — populated on register, null for seeded test users
     public string? PasswordHash { get; set; }

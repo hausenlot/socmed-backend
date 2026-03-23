@@ -32,23 +32,31 @@ public class RantService : IRantService
         return await MapToResponseDtosAsync(rants, requestingUserId);
     }
 
-    public async Task<RantResponseDto?> GetRantByIdAsync(int id, string? requestingUserId = null)
+    public async Task<RantResponseDto?> GetRantByIdAsync(string id, string? requestingUserId = null)
     {
         var rant = await _context.Rants
             .Include(r => r.User)
-            .FirstOrDefaultAsync(r => r.Id == id);
+            .FirstOrDefaultAsync(r => r.PublicId == id);
 
         if (rant == null) return null;
         return (await MapToResponseDtosAsync(new[] { rant }, requestingUserId)).First();
     }
 
-    public async Task<RantResponseDto> CreateRantAsync(string content, string userId, int? quoteRantId = null, string? mediaId = null, string? mediaType = null)
+    public async Task<RantResponseDto> CreateRantAsync(string content, string userId, string? quoteRantId = null, string? mediaId = null, string? mediaType = null)
     {
+        int? internalQuoteRantId = null;
+        if (!string.IsNullOrEmpty(quoteRantId))
+        {
+            var qr = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == quoteRantId);
+            internalQuoteRantId = qr?.Id;
+        }
+
         var rant = new Rant
         {
+            PublicId = Guid.NewGuid().ToString(),
             Content = content,
             UserId = userId,
-            QuoteRantId = quoteRantId,
+            QuoteRantId = internalQuoteRantId,
             MediaId = mediaId,
             MediaType = mediaType,
             CreatedAt = DateTime.UtcNow,
@@ -70,9 +78,9 @@ public class RantService : IRantService
         return (await MapToResponseDtosAsync(new[] { savedRant }, userId)).First();
     }
 
-    public async Task<bool> UpdateRantAsync(int id, string content, string userId)
+    public async Task<bool> UpdateRantAsync(string id, string content, string userId)
     {
-        var rant = await _context.Rants.FindAsync(id);
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == id);
         if (rant == null || rant.UserId != userId) return false;
 
         rant.Content = content;
@@ -81,9 +89,9 @@ public class RantService : IRantService
         return true;
     }
 
-    public async Task<bool> SoftDeleteRantAsync(int id, string userId)
+    public async Task<bool> SoftDeleteRantAsync(string id, string userId)
     {
-        var rant = await _context.Rants.FindAsync(id);
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == id);
         if (rant == null || rant.UserId != userId) return false;
 
         rant.IsDeleted = true;
@@ -173,11 +181,12 @@ public class RantService : IRantService
             {
                 quoteRantDto = new QuoteRantDto
                 {
-                    Id = qr.Id,
+                    Id = qr.PublicId,
                     Content = qr.Content,
                     Username = qr.User.Username,
                     DisplayName = qr.User.DisplayName,
                     CreatedAt = qr.CreatedAt,
+                    ProfileImageUrl = qr.User.ProfileMediaId != null ? _multimediaService.GetPublicUrl(qr.User.ProfileMediaId) : null,
                     MediaUrl = qr.MediaId != null ? _multimediaService.GetPublicUrl(qr.MediaId) : null,
                     MediaType = qr.MediaType
                 };
@@ -185,21 +194,21 @@ public class RantService : IRantService
 
             return new RantResponseDto
             {
-                Id = r.Id,
+                Id = r.PublicId,
                 Content = r.Content,
                 CreatedAt = r.CreatedAt,
                 UpdatedAt = r.UpdatedAt,
                 UserId = r.UserId,
                 Username = r.User.Username,
                 DisplayName = r.User.DisplayName,
-                ProfileImageUrl = r.User.ProfileImageUrl,
+                ProfileImageUrl = r.User.ProfileMediaId != null ? _multimediaService.GetPublicUrl(r.User.ProfileMediaId) : null,
                 LikeCount = likeCounts.GetValueOrDefault(r.Id, 0),
                 ReplyCount = replyCounts.GetValueOrDefault(r.Id, 0),
                 ReRantCount = reRantCounts.GetValueOrDefault(r.Id, 0),
                 IsLikedByMe = likedByMe.Contains(r.Id),
                 IsRerantedByMe = rerantedByMe.Contains(r.Id),
                 IsBookmarkedByMe = bookmarkedByMe.Contains(r.Id),
-                QuoteRantId = r.QuoteRantId,
+                QuoteRantId = quoteRantDto?.Id,
                 QuoteRant = quoteRantDto,
                 MediaUrl = r.MediaId != null ? _multimediaService.GetPublicUrl(r.MediaId) : null,
                 MediaType = r.MediaType

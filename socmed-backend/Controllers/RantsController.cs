@@ -33,7 +33,7 @@ public class RantsController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<RantResponseDto>> GetRant(int id)
+    public async Task<ActionResult<RantResponseDto>> GetRant(string id)
     {
         var rant = await _rantService.GetRantByIdAsync(id, CurrentUserId);
         if (rant == null) return NotFound();
@@ -49,6 +49,10 @@ public class RantsController : ControllerBase
         string? mediaType = null;
         if (dto.MediaFile != null)
         {
+            if (dto.MediaFile.Length > 104857600) // 100 MB
+            {
+                return BadRequest(new { message = "File too large. Maximum size is 100MB." });
+            }
             using var stream = dto.MediaFile.OpenReadStream();
             var uploadResult = await multimediaService.UploadFileAsync(stream, dto.MediaFile.FileName, dto.MediaFile.ContentType);
             if (uploadResult != null)
@@ -64,7 +68,7 @@ public class RantsController : ControllerBase
 
     [HttpPut("{id}")]
     [Authorize]
-    public async Task<IActionResult> UpdateRant(int id, [FromBody] UpdateRantDto dto)
+    public async Task<IActionResult> UpdateRant(string id, [FromBody] UpdateRantDto dto)
     {
         var success = await _rantService.UpdateRantAsync(id, dto.Content, CurrentUserId!);
         if (!success) return BadRequest(new { message = "Could not update rant. It may not exist or you don't have permission." });
@@ -73,7 +77,7 @@ public class RantsController : ControllerBase
 
     [HttpPatch("{id}")]
     [Authorize]
-    public async Task<IActionResult> PatchRant(int id, [FromBody] UpdateRantDto dto)
+    public async Task<IActionResult> PatchRant(string id, [FromBody] UpdateRantDto dto)
     {
         var success = await _rantService.UpdateRantAsync(id, dto.Content, CurrentUserId!);
         if (!success) return BadRequest(new { message = "Could not update rant. It may not exist or you don't have permission." });
@@ -82,7 +86,7 @@ public class RantsController : ControllerBase
 
     [HttpDelete("{id}")]
     [Authorize]
-    public async Task<IActionResult> DeleteRant(int id)
+    public async Task<IActionResult> DeleteRant(string id)
     {
         var success = await _rantService.SoftDeleteRantAsync(id, CurrentUserId!);
         if (!success) return BadRequest(new { message = "Could not delete rant. It may not exist or you don't have permission." });
@@ -100,7 +104,7 @@ public class RantsController : ControllerBase
 
     [HttpPost("{id}/like")]
     [Authorize]
-    public async Task<IActionResult> ToggleLike(int id)
+    public async Task<IActionResult> ToggleLike(string id)
     {
         var success = await _interactionService.ToggleLikeAsync(id, CurrentUserId!);
         if (!success) return NotFound(new { message = "Rant not found." });
@@ -109,7 +113,7 @@ public class RantsController : ControllerBase
 
     [HttpPost("{id}/rerant")]
     [Authorize]
-    public async Task<IActionResult> ToggleReRant(int id)
+    public async Task<IActionResult> ToggleReRant(string id)
     {
         var success = await _interactionService.ToggleReRantAsync(id, CurrentUserId!);
         if (!success) return NotFound(new { message = "Rant not found." });
@@ -118,7 +122,7 @@ public class RantsController : ControllerBase
 
     [HttpPost("{id}/bookmark")]
     [Authorize]
-    public async Task<IActionResult> ToggleBookmark(int id)
+    public async Task<IActionResult> ToggleBookmark(string id)
     {
         var success = await _interactionService.ToggleBookmarkAsync(id, CurrentUserId!);
         if (!success) return NotFound(new { message = "Rant not found." });
@@ -126,14 +130,14 @@ public class RantsController : ControllerBase
     }
 
     [HttpGet("{id}/likes")]
-    public async Task<ActionResult<IEnumerable<string>>> GetLikes(int id)
+    public async Task<ActionResult<IEnumerable<string>>> GetLikes(string id)
     {
         var likers = await _interactionService.GetLikesAsync(id);
         return Ok(likers);
     }
 
     [HttpGet("{id}/rerants")]
-    public async Task<ActionResult<IEnumerable<string>>> GetReRants(int id)
+    public async Task<ActionResult<IEnumerable<string>>> GetReRants(string id)
     {
         var reranters = await _interactionService.GetReRantsAsync(id);
         return Ok(reranters);
@@ -142,7 +146,7 @@ public class RantsController : ControllerBase
     // --- Replies ---
 
     [HttpGet("{id}/replies")]
-    public async Task<ActionResult> GetReplies(int id, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<ActionResult> GetReplies(string id, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var replies = await _replyService.GetRepliesAsync(id, CurrentUserId, page, pageSize);
         return Ok(replies);
@@ -151,13 +155,17 @@ public class RantsController : ControllerBase
     [HttpPost("{id}/replies")]
     [Authorize]
     [DisableRequestSizeLimit]
-    public async Task<ActionResult> CreateReply(int id, [FromForm] CreateReplyDto dto, [FromServices] IMultimediaService multimediaService)
+    public async Task<ActionResult> CreateReply(string id, [FromForm] CreateReplyDto dto, [FromServices] IMultimediaService multimediaService)
     {
         string? mediaId = null;
         string? mediaType = null;
 
         if (dto.MediaFile != null)
         {
+            if (dto.MediaFile.Length > 104857600) // 100 MB
+            {
+                return BadRequest(new { message = "File too large. Maximum size is 100MB." });
+            }
             using var stream = dto.MediaFile.OpenReadStream();
             var uploadResult = await multimediaService.UploadFileAsync(stream, dto.MediaFile.FileName, dto.MediaFile.ContentType);
             if (uploadResult != null)

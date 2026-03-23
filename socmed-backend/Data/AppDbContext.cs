@@ -30,6 +30,14 @@ public class AppDbContext : DbContext
         // Apply global query filter for soft delete
         modelBuilder.Entity<Rant>().HasQueryFilter(p => !p.IsDeleted);
 
+        modelBuilder.Entity<Rant>()
+            .HasIndex(r => r.PublicId)
+            .IsUnique();
+
+        modelBuilder.Entity<RantReply>()
+            .HasIndex(rr => rr.PublicId)
+            .IsUnique();
+
         // Configure Composite Primary Keys
         modelBuilder.Entity<RantLike>()
             .HasKey(l => new { l.RantId, l.UserId });

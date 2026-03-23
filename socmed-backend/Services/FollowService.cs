@@ -9,11 +9,13 @@ public class FollowService : IFollowService
 {
     private readonly AppDbContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IMultimediaService _multimediaService;
 
-    public FollowService(AppDbContext context, INotificationService notificationService)
+    public FollowService(AppDbContext context, INotificationService notificationService, IMultimediaService multimediaService)
     {
         _context = context;
         _notificationService = notificationService;
+        _multimediaService = multimediaService;
     }
 
     public async Task<bool> ToggleFollowAsync(string followerId, string followingUsername)
@@ -65,22 +67,24 @@ public class FollowService : IFollowService
 
         if (user == null) return new List<UserProfileDto>();
 
-        return await _context.Follows
+        var followers = await _context.Follows
             .Include(f => f.Follower)
             .Where(f => f.FollowingId == user.Id)
             .OrderByDescending(f => f.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(f => new UserProfileDto
-            {
-                Username = f.Follower.Username,
-                DisplayName = f.Follower.DisplayName,
-                Bio = f.Follower.Bio,
-                ProfileImageUrl = f.Follower.ProfileImageUrl,
-                CreatedAt = f.Follower.CreatedAt,
-                IsFollowedByMe = requestingUserId != null && _context.Follows.Any(f2 => f2.FollowerId == requestingUserId && f2.FollowingId == f.FollowerId)
-            })
             .ToListAsync();
+
+        return followers.Select(f => new UserProfileDto
+        {
+            Id = f.FollowerId,
+            Username = f.Follower.Username,
+            DisplayName = f.Follower.DisplayName,
+            Bio = f.Follower.Bio,
+            ProfileImageUrl = f.Follower.ProfileMediaId != null ? _multimediaService.GetPublicUrl(f.Follower.ProfileMediaId) : null,
+            CreatedAt = f.Follower.CreatedAt,
+            IsFollowedByMe = requestingUserId != null && _context.Follows.Any(f2 => f2.FollowerId == requestingUserId && f2.FollowingId == f.FollowerId)
+        }).ToList();
     }
 
     public async Task<IEnumerable<UserProfileDto>> GetFollowingAsync(string username, int page = 1, int pageSize = 20, string? requestingUserId = null)
@@ -90,21 +94,23 @@ public class FollowService : IFollowService
 
         if (user == null) return new List<UserProfileDto>();
 
-        return await _context.Follows
+        var following = await _context.Follows
             .Include(f => f.Following)
             .Where(f => f.FollowerId == user.Id)
             .OrderByDescending(f => f.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(f => new UserProfileDto
-            {
-                Username = f.Following.Username,
-                DisplayName = f.Following.DisplayName,
-                Bio = f.Following.Bio,
-                ProfileImageUrl = f.Following.ProfileImageUrl,
-                CreatedAt = f.Following.CreatedAt,
-                IsFollowedByMe = requestingUserId != null && _context.Follows.Any(f2 => f2.FollowerId == requestingUserId && f2.FollowingId == f.FollowingId)
-            })
             .ToListAsync();
+
+        return following.Select(f => new UserProfileDto
+        {
+            Id = f.FollowingId,
+            Username = f.Following.Username,
+            DisplayName = f.Following.DisplayName,
+            Bio = f.Following.Bio,
+            ProfileImageUrl = f.Following.ProfileMediaId != null ? _multimediaService.GetPublicUrl(f.Following.ProfileMediaId) : null,
+            CreatedAt = f.Following.CreatedAt,
+            IsFollowedByMe = requestingUserId != null && _context.Follows.Any(f2 => f2.FollowerId == requestingUserId && f2.FollowingId == f.FollowingId)
+        }).ToList();
     }
 }

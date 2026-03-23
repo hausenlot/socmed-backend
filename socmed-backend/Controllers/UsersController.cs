@@ -96,14 +96,11 @@ public class UsersController : ControllerBase
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
             return BadRequest(new { message = "Only JPEG, PNG, GIF and WebP images are allowed." });
 
-        if (file.Length > 5 * 1024 * 1024) // 5 MB limit
-            return BadRequest(new { message = "File size must not exceed 5 MB." });
+        if (file.Length > 104857600) // 100 MB limit
+            return BadRequest(new { message = "File size must not exceed 100 MB." });
 
-        var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
-
-        var success = await _userService.UpdateProfileImageAsync(CurrentUserId!, file, webRootPath, baseUrl);
-        if (!success) return NotFound(new { message = "User not found." });
+        var success = await _userService.UpdateProfileImageAsync(CurrentUserId!, file);
+        if (!success) return NotFound(new { message = "User not found or upload failed." });
 
         // Return updated profile so frontend can refresh the image URL
         var updatedProfile = await _userService.GetUserByUsernameAsync(
@@ -112,14 +109,46 @@ public class UsersController : ControllerBase
         return Ok(new { message = "Profile image uploaded.", profileImageUrl = updatedProfile?.ProfileImageUrl });
     }
 
+    [HttpPost("profile/banner")]
+    [Authorize]
+    public async Task<IActionResult> UploadBannerImage(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "No file provided." });
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLower()))
+            return BadRequest(new { message = "Only JPEG, PNG, GIF and WebP images are allowed." });
+
+        if (file.Length > 104857600) // 100 MB limit for banners
+            return BadRequest(new { message = "File size must not exceed 100 MB." });
+
+        var success = await _userService.UpdateBannerImageAsync(CurrentUserId!, file);
+        if (!success) return NotFound(new { message = "User not found or upload failed." });
+
+        // Return updated profile so frontend can refresh the image URL
+        var updatedProfile = await _userService.GetUserByUsernameAsync(
+            User.FindFirstValue(ClaimTypes.Name)!, CurrentUserId);
+
+        return Ok(new { message = "Banner image uploaded.", bannerImageUrl = updatedProfile?.BannerImageUrl });
+    }
+
     [HttpDelete("profile/image")]
     [Authorize]
     public async Task<IActionResult> DeleteProfileImage()
     {
-        var webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        var success = await _userService.RemoveProfileImageAsync(CurrentUserId!, webRootPath);
+        var success = await _userService.RemoveProfileImageAsync(CurrentUserId!);
         if (!success) return NotFound(new { message = "User not found." });
         return Ok(new { message = "Profile image removed." });
+    }
+
+    [HttpDelete("profile/banner")]
+    [Authorize]
+    public async Task<IActionResult> DeleteBannerImage()
+    {
+        var success = await _userService.RemoveBannerImageAsync(CurrentUserId!);
+        if (!success) return NotFound(new { message = "User not found." });
+        return Ok(new { message = "Banner image removed." });
     }
 
     // --- Follows ---

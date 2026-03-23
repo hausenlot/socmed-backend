@@ -15,13 +15,13 @@ public class RantInteractionService : IRantInteractionService
         _notificationService = notificationService;
     }
 
-    public async Task<bool> ToggleLikeAsync(int rantId, string userId)
+    public async Task<bool> ToggleLikeAsync(string rantId, string userId)
     {
-        var rantExists = await _context.Rants.AnyAsync(r => r.Id == rantId);
-        if (!rantExists) return false;
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == rantId);
+        if (rant == null) return false;
 
         var existingLike = await _context.RantLikes
-            .FirstOrDefaultAsync(l => l.RantId == rantId && l.UserId == userId);
+            .FirstOrDefaultAsync(l => l.RantId == rant.Id && l.UserId == userId);
 
         if (existingLike != null)
         {
@@ -30,12 +30,11 @@ public class RantInteractionService : IRantInteractionService
         }
         else
         {
-            _context.RantLikes.Add(new RantLike { RantId = rantId, UserId = userId });
+            _context.RantLikes.Add(new RantLike { RantId = rant.Id, UserId = userId });
             await _context.SaveChangesAsync();
 
             // Trigger notification
-            var rant = await _context.Rants.FindAsync(rantId);
-            if (rant != null && rant.UserId != userId)
+            if (rant.UserId != userId)
             {
                 var user = await _context.Users.FindAsync(userId);
                 var username = user?.Username ?? "Someone";
@@ -44,7 +43,7 @@ public class RantInteractionService : IRantInteractionService
                     "Like",
                     $"{username} liked your rant.",
                     username,
-                    rantId
+                    rant.Id
                 );
             }
         }
@@ -52,13 +51,13 @@ public class RantInteractionService : IRantInteractionService
         return true;
     }
 
-    public async Task<bool> ToggleReRantAsync(int rantId, string userId)
+    public async Task<bool> ToggleReRantAsync(string rantId, string userId)
     {
-        var rantExists = await _context.Rants.AnyAsync(r => r.Id == rantId);
-        if (!rantExists) return false;
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == rantId);
+        if (rant == null) return false;
 
         var existingReRant = await _context.RantReRants
-            .FirstOrDefaultAsync(r => r.RantId == rantId && r.UserId == userId);
+            .FirstOrDefaultAsync(r => r.RantId == rant.Id && r.UserId == userId);
 
         if (existingReRant != null)
         {
@@ -67,12 +66,11 @@ public class RantInteractionService : IRantInteractionService
         }
         else
         {
-            _context.RantReRants.Add(new RantReRant { RantId = rantId, UserId = userId });
+            _context.RantReRants.Add(new RantReRant { RantId = rant.Id, UserId = userId });
             await _context.SaveChangesAsync();
 
             // Trigger notification
-            var rant = await _context.Rants.FindAsync(rantId);
-            if (rant != null && rant.UserId != userId)
+            if (rant.UserId != userId)
             {
                 var user = await _context.Users.FindAsync(userId);
                 var username = user?.Username ?? "Someone";
@@ -81,7 +79,7 @@ public class RantInteractionService : IRantInteractionService
                     "ReRant",
                     $"{username} reranted your rant.",
                     username,
-                    rantId
+                    rant.Id
                 );
             }
         }
@@ -89,13 +87,13 @@ public class RantInteractionService : IRantInteractionService
         return true;
     }
 
-    public async Task<bool> ToggleBookmarkAsync(int rantId, string userId)
+    public async Task<bool> ToggleBookmarkAsync(string rantId, string userId)
     {
-        var rantExists = await _context.Rants.AnyAsync(r => r.Id == rantId);
-        if (!rantExists) return false;
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == rantId);
+        if (rant == null) return false;
 
         var existingBookmark = await _context.RantBookmarks
-            .FirstOrDefaultAsync(b => b.RantId == rantId && b.UserId == userId);
+            .FirstOrDefaultAsync(b => b.RantId == rant.Id && b.UserId == userId);
 
         if (existingBookmark != null)
         {
@@ -103,26 +101,32 @@ public class RantInteractionService : IRantInteractionService
         }
         else
         {
-            _context.RantBookmarks.Add(new RantBookmark { RantId = rantId, UserId = userId });
+            _context.RantBookmarks.Add(new RantBookmark { RantId = rant.Id, UserId = userId });
         }
 
         await _context.SaveChangesAsync();
         return true;
     }
 
-    public async Task<IEnumerable<string>> GetLikesAsync(int rantId)
+    public async Task<IEnumerable<string>> GetLikesAsync(string rantId)
     {
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == rantId);
+        if (rant == null) return Enumerable.Empty<string>();
+
         return await _context.RantLikes
-            .Where(l => l.RantId == rantId)
+            .Where(l => l.RantId == rant.Id)
             .OrderByDescending(l => l.CreatedAt)
             .Select(l => l.UserId)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<string>> GetReRantsAsync(int rantId)
+    public async Task<IEnumerable<string>> GetReRantsAsync(string rantId)
     {
+        var rant = await _context.Rants.FirstOrDefaultAsync(r => r.PublicId == rantId);
+        if (rant == null) return Enumerable.Empty<string>();
+
         return await _context.RantReRants
-            .Where(r => r.RantId == rantId)
+            .Where(r => r.RantId == rant.Id)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => r.UserId)
             .ToListAsync();

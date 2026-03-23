@@ -28,6 +28,16 @@ public class NotificationService : INotificationService
             .Take(pageSize)
             .ToListAsync();
 
+        var relatedRantIds = notifications
+            .Where(n => n.RelatedEntityId.HasValue)
+            .Select(n => n.RelatedEntityId!.Value)
+            .Distinct()
+            .ToList();
+
+        var publicIdMap = await _context.Rants
+            .Where(r => relatedRantIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, r => r.PublicId);
+
         return notifications.Select(n => new NotificationResponseDto
         {
             Id = n.Id,
@@ -36,7 +46,9 @@ public class NotificationService : INotificationService
             IsRead = n.IsRead,
             CreatedAt = n.CreatedAt,
             SourceUsername = n.SourceUsername,
-            RantId = n.RelatedEntityId
+            RantId = n.RelatedEntityId.HasValue && publicIdMap.ContainsKey(n.RelatedEntityId.Value) 
+                ? publicIdMap[n.RelatedEntityId.Value] 
+                : null
         }).ToList();
     }
 
@@ -90,6 +102,13 @@ public class NotificationService : INotificationService
         await _context.SaveChangesAsync();
 
         // Push to SignalR
+        string? publicRantId = null;
+        if (notification.RelatedEntityId.HasValue)
+        {
+            var rant = await _context.Rants.FindAsync(notification.RelatedEntityId.Value);
+            publicRantId = rant?.PublicId;
+        }
+
         var dto = new NotificationResponseDto
         {
             Id = notification.Id,
@@ -98,7 +117,7 @@ public class NotificationService : INotificationService
             IsRead = notification.IsRead,
             CreatedAt = notification.CreatedAt,
             SourceUsername = notification.SourceUsername,
-            RantId = notification.RelatedEntityId
+            RantId = publicRantId
         };
 
         await _hubContext.Clients.Group(userId).SendAsync("ReceiveNotification", dto);

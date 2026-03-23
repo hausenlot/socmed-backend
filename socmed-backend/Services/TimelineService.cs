@@ -25,35 +25,37 @@ public class TimelineService : ITimelineService
 
         followingIds.Add(userId);
 
-        // Own rants (reRantedBy = null)
-        var ownRants = await _context.Rants
-            .Include(r => r.User)
+        // Define the queries as IQueryable to allow server-side paging.
+        // We project into a shape that includes the Rant and its User.
+        var ownRantsQuery = _context.Rants
             .Where(r => followingIds.Contains(r.UserId) && !r.IsDeleted)
-            .Select(r => new { Rant = r, ReRantedBy = (string?)null })
-            .ToListAsync();
+            .Select(r => new { Rant = r, User = r.User, ReRantedBy = (string?)null });
 
-        // Rants re-ranted by followed users
-        var rerantedRants = await _context.RantReRants
-            .Include(rr => rr.Rant)
-                .ThenInclude(r => r.User)
-            .Include(rr => rr.User) // The person who re-ranted
+        var rerantedRantsQuery = _context.RantReRants
             .Where(rr => followingIds.Contains(rr.UserId) && !rr.Rant.IsDeleted)
-            .Select(rr => new { Rant = rr.Rant, ReRantedBy = (string?)rr.User.Username })
-            .ToListAsync();
+            .Select(rr => new { Rant = rr.Rant, User = rr.Rant.User, ReRantedBy = (string?)rr.User.Username });
 
-        var combinedAndSorted = ownRants.Concat(rerantedRants)
+        // Union the queries, Sort, and Page BEFORE calling ToListAsync
+        var combinedAndPaged = await ownRantsQuery
+            .Union(rerantedRantsQuery)
             .OrderByDescending(x => x.Rant.CreatedAt)
             .ThenByDescending(x => x.Rant.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ToListAsync();
 
-        var rantsToMap = combinedAndSorted.Select(x => x.Rant).ToList();
+        // Re-attach the User objects to the Rants since the Union projection might disconnect them
+        var rantsToMap = combinedAndPaged.Select(x => 
+        {
+            x.Rant.User = x.User;
+            return x.Rant;
+        }).ToList();
+
         var dtos = (await _rantService.MapToResponseDtosAsync(rantsToMap, userId)).ToList();
 
         for (int i = 0; i < dtos.Count; i++)
         {
-            dtos[i].ReRantedByUsername = combinedAndSorted[i].ReRantedBy;
+            dtos[i].ReRantedByUsername = combinedAndPaged[i].ReRantedBy;
         }
 
         return dtos;
@@ -67,32 +69,33 @@ public class TimelineService : ITimelineService
 
         if (targetUser == null) return new List<RantResponseDto>();
 
-        var ownRants = await _context.Rants
-            .Include(r => r.User)
+        var ownRantsQuery = _context.Rants
             .Where(r => r.UserId == targetUser.Id && !r.IsDeleted)
-            .Select(r => new { Rant = r, ReRantedBy = (string?)null })
-            .ToListAsync();
+            .Select(r => new { Rant = r, User = r.User, ReRantedBy = (string?)null });
 
-        var rerantedRants = await _context.RantReRants
-            .Include(rr => rr.Rant)
-                .ThenInclude(r => r.User)
+        var rerantedRantsQuery = _context.RantReRants
             .Where(rr => rr.UserId == targetUser.Id && !rr.Rant.IsDeleted)
-            .Select(rr => new { Rant = rr.Rant, ReRantedBy = (string?)targetUser.Username })
-            .ToListAsync();
+            .Select(rr => new { Rant = rr.Rant, User = rr.Rant.User, ReRantedBy = (string?)targetUser.Username });
 
-        var combinedAndSorted = ownRants.Concat(rerantedRants)
+        var combinedAndPaged = await ownRantsQuery
+            .Union(rerantedRantsQuery)
             .OrderByDescending(x => x.Rant.CreatedAt)
             .ThenByDescending(x => x.Rant.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ToListAsync();
 
-        var rantsToMap = combinedAndSorted.Select(x => x.Rant).ToList();
+        var rantsToMap = combinedAndPaged.Select(x => 
+        {
+            x.Rant.User = x.User;
+            return x.Rant;
+        }).ToList();
+
         var dtos = (await _rantService.MapToResponseDtosAsync(rantsToMap, requestingUserId)).ToList();
 
         for (int i = 0; i < dtos.Count; i++)
         {
-            dtos[i].ReRantedByUsername = combinedAndSorted[i].ReRantedBy;
+            dtos[i].ReRantedByUsername = combinedAndPaged[i].ReRantedBy;
         }
 
         return dtos;

@@ -5,11 +5,11 @@ namespace socmed_backend.DTOs;
 public class CreateReplyDto
 {
     [Required]
-    [MaxLength(280)]
+    [MaxLength(1000)]
     public string Content { get; set; } = string.Empty;
 
     /// <summary>Optional: ID of the reply this is responding to.</summary>
-    public int? ParentReplyId { get; set; }
+    public string? ParentReplyId { get; set; }
 
     public Microsoft.AspNetCore.Http.IFormFile? MediaFile { get; set; }
 }
@@ -17,7 +17,7 @@ public class CreateReplyDto
 public class UpdateReplyDto
 {
     [Required]
-    [MaxLength(280)]
+    [MaxLength(1000)]
     public string Content { get; set; } = string.Empty;
 }
 
@@ -26,7 +26,8 @@ public class UpdateReplyDto
 /// </summary>
 public class ReplyResponseDto
 {
-    public int Id { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string RantId { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 
@@ -37,7 +38,7 @@ public class ReplyResponseDto
     public string? ProfileImageUrl { get; set; }
 
     // Parent reply reference (flat threading)
-    public int? ParentReplyId { get; set; }
+    public string? ParentReplyId { get; set; }
     public string? ParentReplyUsername { get; set; }
 
     // Counts
