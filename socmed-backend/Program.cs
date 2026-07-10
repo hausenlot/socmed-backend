@@ -24,7 +24,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 
 // DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // App Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -37,6 +37,8 @@ builder.Services.AddScoped<IReplyService, ReplyService>();
 builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<ITimelineService, TimelineService>();
 builder.Services.AddHttpClient<IMultimediaService, MultimediaService>();
+builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -85,7 +87,9 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:3000",   // React / CRA
-                "http://localhost:5173"    // Vite
+                "http://localhost:5173",    // Vite
+                "http://192.168.1.44",  // Local Server IP
+                "https://social.polobutporo.xyz"    // Remote Host Domain
               )
               .AllowAnyHeader()
               .AllowAnyMethod()

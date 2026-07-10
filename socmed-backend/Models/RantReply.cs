@@ -27,4 +27,6 @@ public class RantReply
     // Navigation properties
     public Rant Rant { get; set; } = null!;
     public User User { get; set; } = null!;
+    public RantReply? ParentReply { get; set; }
+    public ICollection<RantReply> ChildReplies { get; set; } = new List<RantReply>();
 }

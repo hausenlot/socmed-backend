@@ -92,16 +92,47 @@ public class UserService : IUserService
         return dtos;
     }
 
-    public async Task<IEnumerable<User>> SearchUsersAsync(string query)
+    public async Task<IEnumerable<UserProfileDto>> SearchUsersAsync(string query, string? requestingUserId = null)
     {
-        if (string.IsNullOrWhiteSpace(query)) return new List<User>();
+        if (string.IsNullOrWhiteSpace(query)) return new List<UserProfileDto>();
 
         string lowerQuery = query.ToLower();
-        return await _context.Users
+        var users = await _context.Users
             .Where(u => u.Username.ToLower().Contains(lowerQuery) ||
                         (u.DisplayName != null && u.DisplayName.ToLower().Contains(lowerQuery)))
             .Take(20)
             .ToListAsync();
+
+        var dtos = new List<UserProfileDto>();
+        foreach (var user in users)
+        {
+            var followerCount = await _context.Follows.CountAsync(f => f.FollowingId == user.Id);
+            var followingCount = await _context.Follows.CountAsync(f => f.FollowerId == user.Id);
+            var rantCount = await _context.Rants.CountAsync(r => r.UserId == user.Id);
+
+            bool isFollowedByMe = false;
+            if (requestingUserId != null && requestingUserId != user.Id)
+            {
+                isFollowedByMe = await _context.Follows
+                    .AnyAsync(f => f.FollowerId == requestingUserId && f.FollowingId == user.Id);
+            }
+
+            dtos.Add(new UserProfileDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                DisplayName = user.DisplayName,
+                Bio = user.Bio,
+                ProfileImageUrl = user.ProfileMediaId != null ? _multimediaService.GetPublicUrl(user.ProfileMediaId) : null,
+                BannerImageUrl = user.BannerMediaId != null ? _multimediaService.GetPublicUrl(user.BannerMediaId) : null,
+                CreatedAt = user.CreatedAt,
+                FollowerCount = followerCount,
+                FollowingCount = followingCount,
+                RantCount = rantCount,
+                IsFollowedByMe = isFollowedByMe
+            });
+        }
+        return dtos;
     }
 
     public async Task<IEnumerable<ReplyResponseDto>> GetUserRepliesAsync(

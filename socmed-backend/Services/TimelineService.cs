@@ -23,8 +23,6 @@ public class TimelineService : ITimelineService
             .Select(f => f.FollowingId)
             .ToListAsync();
 
-        followingIds.Add(userId);
-
         // Define the queries as IQueryable to allow server-side paging.
         // We project into a shape that includes the Rant and its User.
         var ownRantsQuery = _context.Rants

@@ -12,5 +12,8 @@ public class NotificationResponseDto
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? SourceUsername { get; set; }
+    public string? SourceDisplayName { get; set; }
+    public string? SourceProfileImageUrl { get; set; }
     public string? RantId { get; set; }
+    public string? RelatedRantContent { get; set; }
 }

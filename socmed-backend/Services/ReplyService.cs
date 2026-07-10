@@ -26,7 +26,27 @@ public class ReplyService : IReplyService
         var replies = await _context.RantReplies
             .Include(r => r.User)
             .Include(r => r.Rant)
-            .Where(r => r.RantId == rant.Id && !r.IsDeleted)
+            .Where(r => r.RantId == rant.Id && !r.IsDeleted && r.ParentReplyId == null)
+            .OrderBy(r => r.CreatedAt)
+            .ThenBy(r => r.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return await MapToResponseDtosAsync(replies, requestingUserId);
+    }
+
+    public async Task<IEnumerable<ReplyResponseDto>> GetChildRepliesAsync(string parentReplyId, string? requestingUserId = null, int page = 1, int pageSize = 10)
+    {
+        var parentReply = await _context.RantReplies
+            .Include(r => r.Rant)
+            .FirstOrDefaultAsync(r => r.PublicId == parentReplyId);
+        if (parentReply == null) return Enumerable.Empty<ReplyResponseDto>();
+
+        var replies = await _context.RantReplies
+            .Include(r => r.User)
+            .Include(r => r.Rant)
+            .Where(r => r.ParentReplyId == parentReply.Id && !r.IsDeleted)
             .OrderBy(r => r.CreatedAt)
             .ThenBy(r => r.Id)
             .Skip((page - 1) * pageSize)
@@ -45,7 +65,9 @@ public class ReplyService : IReplyService
         if (!string.IsNullOrEmpty(dto.ParentReplyId))
         {
             var pr = await _context.RantReplies.FirstOrDefaultAsync(r => r.PublicId == dto.ParentReplyId);
-            internalParentReplyId = pr?.Id;
+            if (pr == null) return null; // Invalid parent reply ID
+            if (pr.RantId != rant.Id) return null; // Parent reply belongs to a different rant
+            internalParentReplyId = pr.Id;
         }
 
         var reply = new RantReply
@@ -205,6 +227,13 @@ public class ReplyService : IReplyService
                 .ToListAsync()
             : new List<int>();
 
+        // Load child reply counts
+        var childCounts = await _context.RantReplies
+            .Where(r => r.ParentReplyId.HasValue && replyIds.Contains(r.ParentReplyId!.Value) && !r.IsDeleted)
+            .GroupBy(r => r.ParentReplyId!.Value)
+            .Select(g => new { ParentId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ParentId, x => x.Count);
+
         return replyList.Select(r => new ReplyResponseDto
         {
             Id = r.PublicId,
@@ -222,7 +251,7 @@ public class ReplyService : IReplyService
                 ? parentInfo[r.ParentReplyId.Value].Username
                 : null,
             LikeCount = likeCounts.ContainsKey(r.Id) ? likeCounts[r.Id] : 0,
-            ReplyCount = 0, // Flattening for now
+            ReplyCount = childCounts.GetValueOrDefault(r.Id, 0),
             IsLikedByMe = likedByMe.Contains(r.Id),
             MediaUrl = r.MediaId != null ? _multimediaService.GetPublicUrl(r.MediaId) : null,
             MediaType = r.MediaType

@@ -11,5 +11,7 @@ public interface IRantService
     Task<bool> UpdateRantAsync(string id, string content, string userId);
     Task<bool> SoftDeleteRantAsync(string id, string userId);
     Task<IEnumerable<RantResponseDto>> GetExploreRantsAsync(string? requestingUserId = null, int page = 1, int pageSize = 20);
+    Task<IEnumerable<RantResponseDto>> SearchRantsAsync(string query, string? requestingUserId = null, int page = 1, int pageSize = 20);
+    Task<IEnumerable<TrendingHashtagDto>> GetTrendingHashtagsAsync();
     Task<IEnumerable<RantResponseDto>> MapToResponseDtosAsync(IEnumerable<Rant> rants, string? requestingUserId);
 }

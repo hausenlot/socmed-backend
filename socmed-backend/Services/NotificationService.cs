@@ -12,11 +12,13 @@ public class NotificationService : INotificationService
 {
     private readonly AppDbContext _context;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly IMultimediaService _multimediaService;
 
-    public NotificationService(AppDbContext context, IHubContext<NotificationHub> hubContext)
+    public NotificationService(AppDbContext context, IHubContext<NotificationHub> hubContext, IMultimediaService multimediaService)
     {
         _context = context;
         _hubContext = hubContext;
+        _multimediaService = multimediaService;
     }
 
     public async Task<IEnumerable<NotificationResponseDto>> GetNotificationsAsync(string userId, int page = 1, int pageSize = 20)
@@ -34,21 +36,52 @@ public class NotificationService : INotificationService
             .Distinct()
             .ToList();
 
-        var publicIdMap = await _context.Rants
+        var rantInfoMap = await _context.Rants
             .Where(r => relatedRantIds.Contains(r.Id))
-            .ToDictionaryAsync(r => r.Id, r => r.PublicId);
+            .ToDictionaryAsync(r => r.Id, r => new { r.PublicId, r.Content });
 
-        return notifications.Select(n => new NotificationResponseDto
-        {
-            Id = n.Id,
-            Type = n.Type,
-            Message = n.Message,
-            IsRead = n.IsRead,
-            CreatedAt = n.CreatedAt,
-            SourceUsername = n.SourceUsername,
-            RantId = n.RelatedEntityId.HasValue && publicIdMap.ContainsKey(n.RelatedEntityId.Value) 
-                ? publicIdMap[n.RelatedEntityId.Value] 
-                : null
+        var sourceUsernames = notifications
+            .Where(n => !string.IsNullOrEmpty(n.SourceUsername))
+            .Select(n => n.SourceUsername!)
+            .Distinct()
+            .ToList();
+
+        var sourceUsersMap = await _context.Users
+            .Where(u => sourceUsernames.Contains(u.Username))
+            .ToDictionaryAsync(u => u.Username, u => new { u.DisplayName, u.ProfileMediaId });
+
+        return notifications.Select(n => {
+            string? publicRantId = null;
+            string? relatedRantContent = null;
+            if (n.RelatedEntityId.HasValue && rantInfoMap.TryGetValue(n.RelatedEntityId.Value, out var rantInfo))
+            {
+                publicRantId = rantInfo.PublicId;
+                relatedRantContent = rantInfo.Content;
+            }
+
+            string? sourceDisplayName = null;
+            string? sourceProfileImageUrl = null;
+            if (!string.IsNullOrEmpty(n.SourceUsername) && sourceUsersMap.TryGetValue(n.SourceUsername, out var userVal))
+            {
+                sourceDisplayName = userVal.DisplayName;
+                sourceProfileImageUrl = userVal.ProfileMediaId != null 
+                    ? _multimediaService.GetPublicUrl(userVal.ProfileMediaId) 
+                    : null;
+            }
+
+            return new NotificationResponseDto
+            {
+                Id = n.Id,
+                Type = n.Type,
+                Message = n.Message,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt,
+                SourceUsername = n.SourceUsername,
+                SourceDisplayName = sourceDisplayName,
+                SourceProfileImageUrl = sourceProfileImageUrl,
+                RantId = publicRantId,
+                RelatedRantContent = relatedRantContent
+            };
         }).ToList();
     }
 
@@ -103,10 +136,26 @@ public class NotificationService : INotificationService
 
         // Push to SignalR
         string? publicRantId = null;
+        string? relatedRantContent = null;
         if (notification.RelatedEntityId.HasValue)
         {
             var rant = await _context.Rants.FindAsync(notification.RelatedEntityId.Value);
             publicRantId = rant?.PublicId;
+            relatedRantContent = rant?.Content;
+        }
+
+        string? sourceDisplayName = null;
+        string? sourceProfileImageUrl = null;
+        if (!string.IsNullOrEmpty(sourceUsername))
+        {
+            var sourceUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == sourceUsername);
+            if (sourceUser != null)
+            {
+                sourceDisplayName = sourceUser.DisplayName;
+                sourceProfileImageUrl = sourceUser.ProfileMediaId != null 
+                    ? _multimediaService.GetPublicUrl(sourceUser.ProfileMediaId) 
+                    : null;
+            }
         }
 
         var dto = new NotificationResponseDto
@@ -117,7 +166,10 @@ public class NotificationService : INotificationService
             IsRead = notification.IsRead,
             CreatedAt = notification.CreatedAt,
             SourceUsername = notification.SourceUsername,
-            RantId = publicRantId
+            SourceDisplayName = sourceDisplayName,
+            SourceProfileImageUrl = sourceProfileImageUrl,
+            RantId = publicRantId,
+            RelatedRantContent = relatedRantContent
         };
 
         await _hubContext.Clients.Group(userId).SendAsync("ReceiveNotification", dto);

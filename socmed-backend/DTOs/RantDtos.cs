@@ -75,3 +75,12 @@ public class QuoteRantDto
     public string? MediaUrl { get; set; }
     public string? MediaType { get; set; }
 }
+
+public class TrendingHashtagDto
+{
+    public string Tag { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public string? Description { get; set; }
+}
+

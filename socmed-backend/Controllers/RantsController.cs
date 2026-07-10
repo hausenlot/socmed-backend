@@ -100,6 +100,28 @@ public class RantsController : ControllerBase
         return Ok(rants);
     }
 
+    [HttpGet("trending")]
+    public async Task<ActionResult<IEnumerable<TrendingHashtagDto>>> GetTrending()
+    {
+        var trends = await _rantService.GetTrendingHashtagsAsync();
+        return Ok(trends);
+    }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<IEnumerable<RantResponseDto>>> SearchRants([FromQuery] string q, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var rants = await _rantService.SearchRantsAsync(q, CurrentUserId, page, pageSize);
+        return Ok(rants);
+    }
+
+    [HttpDelete("dangerously-delete-all")]
+    public async Task<IActionResult> DangerouslyDeleteAll([FromServices] socmed_backend.Data.AppDbContext context)
+    {
+        context.Rants.RemoveRange(context.Rants);
+        await context.SaveChangesAsync();
+        return Ok(new { message = "Successfully wiped all rants from the database." });
+    }
+
     // --- Interactions ---
 
     [HttpPost("{id}/like")]

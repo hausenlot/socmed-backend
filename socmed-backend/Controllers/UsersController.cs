@@ -40,10 +40,10 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult> SearchUsers([FromQuery] string q)
+    public async Task<ActionResult<IEnumerable<UserProfileDto>>> SearchUsers([FromQuery] string q)
     {
         if (string.IsNullOrWhiteSpace(q)) return BadRequest(new { message = "Search query is required." });
-        var users = await _userService.SearchUsersAsync(q);
+        var users = await _userService.SearchUsersAsync(q, CurrentUserId);
         return Ok(users);
     }
 
@@ -166,6 +166,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<IEnumerable<UserProfileDto>>> GetFollowers(
         string username, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
+        Console.WriteLine($"[GetFollowers] username: {username}, CurrentUserId: {CurrentUserId ?? "NULL"}");
         var followers = await _followService.GetFollowersAsync(username, page, pageSize, CurrentUserId);
         return Ok(followers);
     }
@@ -174,6 +175,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<IEnumerable<UserProfileDto>>> GetFollowing(
         string username, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
+        Console.WriteLine($"[GetFollowing] username: {username}, CurrentUserId: {CurrentUserId ?? "NULL"}");
         var following = await _followService.GetFollowingAsync(username, page, pageSize, CurrentUserId);
         return Ok(following);
     }

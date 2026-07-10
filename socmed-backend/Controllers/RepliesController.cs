@@ -42,4 +42,12 @@ public class RepliesController : ControllerBase
         await _replyService.ToggleLikeAsync(replyId, CurrentUserId);
         return Ok();
     }
+
+    [HttpGet("{replyId}/replies")]
+    public async Task<IActionResult> GetChildReplies(string replyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var replies = await _replyService.GetChildRepliesAsync(replyId, userId, page, pageSize);
+        return Ok(replies);
+    }
 }
